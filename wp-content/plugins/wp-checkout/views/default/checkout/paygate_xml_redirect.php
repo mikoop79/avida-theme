@@ -1,0 +1,3 @@
+<h3><?php _e('3D Secure Verification', $this -> plugin_name); ?></h3>
+<p><?php _e('Please use the Visa/MasterCard verification below to complete your order.', $this -> plugin_name); ?></p>
+<iframe width="100%" height="400" frameborder="0" scrolling="no" class="autoHeight widefat" style="width:100%; height:400px; margin:15px 0 0 0;" src="<?php echo $secure['URL']; ?>?TRANS_ID=<?php echo $secure['TID']; ?>&PAYGATE_ID=<?php echo $payxml['pgid']; ?>&CHECKSUM=<?php echo $secure['CHK']; ?>"></iframe>

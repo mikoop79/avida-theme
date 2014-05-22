@@ -1,0 +1,1 @@
+<?php echo $wpcoForm -> text('Coupon.code', array('width' => '125px')); ?>

@@ -1,0 +1,1 @@
+[28-Nov-2011 19:43:29] PHP Fatal error:  Using $this when not in object context in /home/wpplugin/public_html/wp-content/plugins/wp-checkout/views/simpleblue/favorites/link.php on line 2

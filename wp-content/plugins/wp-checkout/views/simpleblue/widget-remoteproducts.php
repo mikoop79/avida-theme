@@ -1,0 +1,5 @@
+<?php if (!empty($options)) : ?>
+	<?php echo $args['before_title']; ?><?php echo $options['title']; ?><?php echo $args['after_title']; ?>
+
+	<iframe class="autoHeight" id="remoteproducts<?php echo $options['number']; ?>" name="remoteproducts<?php echo $options['number']; ?>" frameborder="0" scrolling="auto" style="height:<?php echo $options['iframeheight']; ?>px; width:100%; padding:0; border:none; margin:0;" src="<?php echo rtrim($options['domain'], '/'); ?>/?<?php echo $this -> pre; ?>method=remoteproducts&amp;number=<?php echo $options['number']; ?>&amp;count=<?php echo $options['count']; ?>&amp;thumbs=<?php echo $options['thumbs']; ?>&amp;shlink=<?php echo $options['shlink']; ?>&amp;shlinktitle=<?php echo $options['shlinktitle']; ?>&amp;shlinkurl=<?php echo $options['shlinkurl']; ?>"></iframe>
+<?php endif; ?>

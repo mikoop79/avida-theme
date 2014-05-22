@@ -1,0 +1,2 @@
+<p><?php _e('Your payment has failed. Please try again', $this -> plugin_name); ?></p>
+<p><input class="<?php echo $this -> pre; ?>button" type="button" name="back" value="<?php _e('&laquo; Shopping Cart', $this -> plugin_name); ?>" onclick="<?php echo $Javascript -> location($wpcoHtml -> cart_url()); ?>" /></p>

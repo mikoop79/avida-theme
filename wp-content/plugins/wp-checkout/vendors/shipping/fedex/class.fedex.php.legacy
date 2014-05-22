@@ -1,0 +1,428 @@
+<?php
+
+require_once(dirname(__FILE__) . DS . "xmlparser.php");
+
+class wpcofedex extends wpCheckoutPlugin {
+    
+    // Variables
+    var $server = "https://gatewaybeta.fedex.com/GatewayDC";
+    var $accountNumber;
+    var $meterNumber;
+    var $carrierCode = "FDXG";
+    var $dropoffType = "REGULARPICKUP";
+    var $service;
+    var $serviceName;
+    var $packaging = "YOURPACKAGING";
+    var $weightUnits = "LBS";
+    var $weight;
+	var $trackingCode;	
+	
+    // Origin Address
+    var $originStateOrProvinceCode;
+    var $originPostalCode;
+    var $originCountryCode;
+    // Destination Address
+    var $destStateOrProvinceCode;
+    var $destPostalCode;
+    var $destCountryCode;
+    var $payorType = "SENDER";
+    
+	function wpcofedex() {
+		return;	
+	}
+	
+	function savemethod($cu_prices = null, $cu_shipmethod = null) {
+		global $Order, $wpdb, $wpcoDb, $wpcoShipmethod, $user_ID, $wpcoHtml;
+	
+		if (!empty($cu_shipmethod)) {							
+			if ($order_id = $Order -> current_order_id()) {
+				$wpcoDb -> model = $Order -> model;
+				if ($order = $wpcoDb -> find(array('id' => $order_id))) {
+					$wpcoDb -> model = $wpcoShipmethod -> model;
+					if ($shipmethod = $wpcoDb -> find(array('id' => $order -> shipmethod_id))) {	
+						$wpcoDb -> model = $Order -> model;
+						$wpcoDb -> save_field('cu_shipmethod', $cu_shipmethod, array('id' => $order_id));
+						update_user_meta($user_ID, 'cu_shipmethod', $cu_shipmethod);
+						
+						$shipping = $cu_prices[$cu_shipmethod];
+						$shipmethod_name = $wpcoHtml -> shipmethod_name($shipmethod -> id, $order_id);
+						
+						$wpcoDb -> model = $Order -> model;	 $wpcoDb -> save_field('shipping', $shipping, array('id' => $order_id));	
+						$wpcoDb -> model = $Order -> model;	 $wpcoDb -> save_field('shipmethod_name', $shipmethod_name, array('id' => $order_id));	
+						
+						$cp_saved = true;	
+						
+						return $shipping;
+					}
+				}
+			}
+		}
+		
+		return false;
+	}
+	
+	function shipmethod($shipmethod = null) {
+		global $wpdb, $wpcoDb, $Order, $wpcoShipmethod, $user_ID, $Item;
+	
+		if ($order_id = $Order -> current_order_id()) {
+			$wpcoDb -> model = $Order -> model;
+			
+			if ($order = $wpcoDb -> find(array('id' => $order_id))) {
+				$wpcoDb -> model = $wpcoShipmethod -> model;
+				
+				if (!empty($shipmethod)) {
+					//if ($fedex = $this -> vendor("fedex", "shipping" . DS . "fedex" . DS)) {
+						$api_options = maybe_unserialize($shipmethod -> api_options);
+						$userdata = $this -> userdata();
+						
+						if ($fedex_services = $api_options['Service']) {
+							$fedex_services_all = $this -> get_option('fedex_services');
+							$prices = array();
+							$errormessages = array();
+							
+							foreach ($fedex_services as $fedex_servicecode) {
+								$this -> service = false;
+								$this -> serviceName = false;
+								$this -> price = array();
+								$price = false;
+								
+								$countrycode = ($userdata -> ship_countrycode == "UK") ? "GB" : $userdata -> ship_countrycode;
+																																
+								//$this = $this -> vendor("fedex", "shipping" . DS . "fedex" . DS);
+								$this -> setServer($api_options['FedExServer']);
+								$this -> setAccountNumber($api_options['AccountNumber']);
+								$this -> setMeterNumber($api_options['MeterNumber']);
+								$this -> setCarrierCode($api_options['CarrierCode']);
+								$this -> setDropoffType($api_options['DropoffType']);
+								$this -> setService($fedex_servicecode, $fedex_services_all[$fedex_servicecode]);
+								$this -> setPackaging($api_options['Packaging']);
+								$this -> setWeightUnits($api_options['WeightUnits']);
+								$this -> setWeight($Order -> weight($order_id));
+								if (!empty($api_options['orig_StateOrProvinceCode'])) { $this -> setOriginStateOrProvinceCode($api_options['orig_StateOrProvinceCode']); }
+								$this -> setOriginPostalCode($api_options['orig_PostalCode']);
+								$this -> setOriginCountryCode($api_options['orig_CountryCode']);
+								//$fedex -> setDestStateOrProvinceCode();
+								$this -> setDestPostalCode($userdata -> ship_zipcode);
+								$this -> setDestCountryCode($countrycode);
+								$this -> setPayorType("SENDER");	
+								$price = $this -> getPrice();
+								
+								if (empty($price -> iserror)) {
+									$prices[] = $price;
+								} else {
+									$errormessages[] = $price;
+								}
+							}
+							
+							if (!empty($prices) && is_array($prices)) {
+								foreach ($prices as $price_key => $price) {
+									if (empty($price -> rate)) {
+										unset($prices[$price_key]);	
+									}
+								}
+							}
+							
+							$this -> render('fedex', array('order' => $order, 'prices' => $prices, 'errormessages' => $errormessages, 'ajaxquote' => true), true, 'default');
+						}
+					//}
+				}
+			}
+		}
+	}
+    
+    // Functions    
+    function setServer($server) {    	
+		switch ($server) {
+			case 'live'			:
+				$this -> server = "https://gateway.fedex.com/GatewayDC";
+				break;
+			default				:
+				$this -> server = "https://gatewaybeta.fedex.com/GatewayDC";
+				break;	
+		}
+		
+		return;
+    }
+
+    function setAccountNumber($accountNumber) {
+        $this -> accountNumber = $accountNumber;
+    }
+
+    function setMeterNumber($meterNumber) {
+        $this -> meterNumber = $meterNumber;
+    }
+
+    function setCarrierCode($carrierCode) {
+        $this -> carrierCode = $carrierCode;
+    }
+    
+    function setDropoffType($dropoffType) {
+        $this -> dropoffType = $dropoffType;
+    }
+
+    function setService($service, $name) {
+        $this -> service = $service;
+        $this -> serviceName = $name;
+    }
+
+    function setPackaging($packaging) {
+        $this -> packaging = $packaging;
+    }
+    
+    function setWeightUnits($units) {
+        $this -> weightUnits = $units;
+    }
+    
+    function setWeight($weight) {
+        $this -> weight = $weight;
+    }
+    
+    function setOriginStateOrProvinceCode($code) {
+        $this -> originStateOrProvinceCode = $code;
+    }
+    
+    function setOriginPostalCode($code) {
+        $this -> originPostalCode = $code;
+    }
+    
+    function setOriginCountryCode($code) {
+        $this -> originCountryCode = $code;
+    }
+    
+    function setDestStateOrProvinceCode($code) {
+        $this -> destStateOrProvinceCode = $code;
+    }
+    
+    function setDestPostalCode($code) {
+        $this -> destPostalCode = $code;
+    }
+    
+    function setDestCountryCode($code) {
+        $this -> destCountryCode = $code;
+    }
+    
+    function setPayorType($type) {
+        $this -> payorType = $type;
+    }
+	
+	function setTrackingCode($trackingCode = null) {
+		$this -> trackingCode = $trackingCode;	
+	}
+	
+	function trackLinkURL() {
+		return 'http://www.fedex.com/cgi-bin/tracking?tracknumbers=' . $this -> trackingCode . '&language=english&action=track&cntry_code=us';
+		//return '<a href="http://www.fedex.com/cgi-bin/tracking?tracknumbers=' . $this -> trackingCode . '&language=english&action=track&cntry_code=us" target="_blank">' . __('View FedEx Tracking Information', $this -> plugin_name) . '</a>';	
+	}
+	
+	function getTracking() {
+	
+		$str = '<?xml version="1.0" encoding="UTF-8" ?>';
+        $str .= '<FDXTrackRequest xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FDXTrackRequest.xsd">';
+		
+		/* RequestHeader */
+		$str .= '<RequestHeader>';
+		$str .= '	<CustomerTransactionIdentifier>String</CustomerTransactionIdentifier>';
+		$str .= ' 	<AccountNumber>' . $this -> accountNumber . '</AccountNumber>';
+		$str .= '	<MeterNumber>' . $this -> meterNumber . '</MeterNumber>';
+		$str .= '	<CarrierCode>' . $this -> carrierCode . '</CarrierCode>';
+		$str .= '</RequestHeader>';
+		
+		/* PackageIdentifier */
+		$str .= '<PackageIdentifier>';
+		$str .= '	<Value>' . $this -> trackingCode . '</Value>';
+		$str .= '	<Type>TRACKING_NUMBER_OR_DOORTAG</Type>';
+		$str .= '</PackageIdentifier>';
+		
+		/* Other values */
+		$str .= '<ShipDateRangeBegin>1967-08-13</ShipDateRangeBegin>';
+		$str .= '<ShipDateRangeEnd>1967-08-13</ShipDateRangeEnd>';
+		$str .= '<ShipDate>1967-08-13</ShipDate>';
+		$str .= '<DestinationCountryCode>AA</DestinationCountryCode>';
+		$str .= '<DetailScans>1</DetailScans>';
+		$str .= '<PagingToken>String</PagingToken>';
+		$str .= '</FDXTrackRequest>';
+		
+		//print($str);
+        $header[] = "Host: " . $_SERVER['HTTP_HOST'];
+        $header[] = "MIME-Version: 1.0";
+        $header[] = "Content-type: multipart/mixed; boundary=----doc";
+        $header[] = "Accept: text/xml";
+        $header[] = "Content-length: ".strlen($str);
+        $header[] = "Cache-Control: no-cache";
+        $header[] = "Connection: close \r\n";
+        $header[] = $str;
+
+        $ch = curl_init();
+        //Disable certificate check.
+        // uncomment the next line if you get curl error 60: error setting certificate verify locations
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+        // uncommenting the next line is most likely not necessary in case of error 60
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+        //-------------------------
+        //curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
+        //curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+        //curl_setopt($ch, CURLOPT_CAINFO, "c:/ca-bundle.crt");
+        //-------------------------
+        curl_setopt($ch, CURLOPT_URL, $this -> server);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+            
+        $data = curl_exec($ch);  
+		return $data;		
+	}
+    
+    function getPrice() {            
+        $str = '<?xml version="1.0" encoding="UTF-8" ?>';
+        $str .= '    <FDXRateRequest xmlns:api="http://www.fedex.com/fsmapi" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FDXRateRequest.xsd">';
+        $str .= '        <RequestHeader>';
+        $str .= '            <CustomerTransactionIdentifier>Express Rate</CustomerTransactionIdentifier>';
+        $str .= '            <AccountNumber>' . $this -> accountNumber . '</AccountNumber>';
+        $str .= '            <MeterNumber>' . $this -> meterNumber . '</MeterNumber>';
+        $str .= '            <CarrierCode>' . $this -> carrierCode . '</CarrierCode>';
+        $str .= '        </RequestHeader>';
+        $str .= '        <DropoffType>' . $this -> dropoffType . '</DropoffType>';
+        $str .= '        <Service>' . $this -> service . '</Service>';
+        $str .= '        <Packaging>' . $this -> packaging . '</Packaging>';
+        $str .= '        <WeightUnits>' . $this -> weightUnits . '</WeightUnits>';
+        $str .= '        <Weight>' . number_format($this -> weight, 1, '.', '') . '</Weight>';
+		/*
+		$str .= '		<Dimensions>';
+		$str .= '		<Length>10</Length>';
+		$str .= '		<Width>10</Width>';
+		$str .= '		<Height>10</Height>';
+		$str .= '		<Units>IN</Units>';
+		$str .= '		</Dimensions>';
+		*/
+        $str .= '        <OriginAddress>';
+        $str .= '            <StateOrProvinceCode>' . $this -> originStateOrProvinceCode . '</StateOrProvinceCode>';
+        $str .= '            <PostalCode>' . $this -> originPostalCode . '</PostalCode>';
+        $str .= '            <CountryCode>' . $this -> originCountryCode . '</CountryCode>';
+        $str .= '        </OriginAddress>';
+        $str .= '        <DestinationAddress>';
+        //$str .= '            <StateOrProvinceCode>'.$this->destStateOrProvinceCode.'</StateOrProvinceCode>';
+        $str .= '            <PostalCode>' . $this -> destPostalCode . '</PostalCode>';
+        $str .= '            <CountryCode>' . $this -> destCountryCode . '</CountryCode>';
+        $str .= '        </DestinationAddress>';
+        $str .= '        <Payment>';
+        $str .= '            <PayorType>' . $this -> payorType . '</PayorType>';
+        $str .= '        </Payment>';
+        $str .= '        <PackageCount>' . ceil(bcdiv(number_format($this -> weight, 1, '.', ''), '150', 3)) . '</PackageCount>';
+        $str .= '    </FDXRateRequest>';
+       
+	   	$header[] = "Host: " . $_SERVER['HTTP_HOST'];
+        $header[] = "MIME-Version: 1.0";
+        $header[] = "Content-type: multipart/mixed; boundary=----doc";
+        $header[] = "Accept: text/xml";
+        $header[] = "Content-length: ".strlen($str);
+        $header[] = "Cache-Control: no-cache";
+        $header[] = "Connection: close \r\n";
+        $header[] = $str;
+
+        $ch = curl_init();
+        //Disable certificate check.
+        // uncomment the next line if you get curl error 60: error setting certificate verify locations
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+        // uncommenting the next line is most likely not necessary in case of error 60
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+        //-------------------------
+        //curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
+        //curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+        //curl_setopt($ch, CURLOPT_CAINFO, "c:/ca-bundle.crt");
+        //-------------------------
+        curl_setopt($ch, CURLOPT_URL, $this -> server);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array("Expect:"));
+		curl_setopt($ch, CURLOPT_POST, true);
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $str);
+            
+        $data = curl_exec($ch); 
+               
+        if (curl_errno($ch)) {
+            $this -> getPrice();
+        } else {
+            // close curl resource, and free up system resources
+            curl_close($ch);
+            $xmlParser = new xmlparser();
+            $array = $xmlParser -> GetXMLTree($data);
+
+            if(count($array['FDXRATEREPLY'][0]['ERROR'])) { // If it is error
+                $error = new fedexError();
+                $error -> iserror = true;
+                $error -> number = $array['FDXRATEREPLY'][0]['ERROR'][0]['CODE'][0]['VALUE'];
+                $error -> description = $array['FDXRATEREPLY'][0]['ERROR'][0]['MESSAGE'][0]['VALUE'];
+                $error -> response = $array;
+                $error -> service = $this -> serviceName;
+                $this -> error = $error;
+                
+                return $error;
+            } else if (count($array['FDXRATEREPLY'][0]['ESTIMATEDCHARGES'][0]['DISCOUNTEDCHARGES'][0]['NETCHARGE'])) {
+                $price = new fedexPrice();
+                $price -> rate = $array['FDXRATEREPLY'][0]['ESTIMATEDCHARGES'][0]['DISCOUNTEDCHARGES'][0]['NETCHARGE'][0]['VALUE'];
+                $price -> service = $this -> serviceName;
+                $price -> response = $array;
+                $this -> price = $price;            
+                
+                return $price;
+            }
+        }
+    }
+	
+	function getAllPrices($shipmethod = null, $order_id = null) {
+		global $Order;
+		$prices = array();
+		
+		if (!empty($shipmethod) && !empty($order_id)) {
+			//if ($fedex = $this -> vendor("fedex", "shipping" . DS . "fedex" . DS)) {
+				$api_options = maybe_unserialize($shipmethod -> api_options);
+				$userdata = $this -> userdata();
+				
+				if ($fedex_services = $api_options['Service']) {
+					$fedex_services_all = $this -> get_option('fedex_services');
+					$prices = array();
+					
+					foreach ($fedex_services as $fedex_servicecode) {						
+						$fedex = $this -> vendor("fedex", "shipping" . DS . "fedex" . DS);
+						$fedex -> setServer($this -> server);
+						$fedex -> setAccountNumber($api_options['AccountNumber']);
+						$fedex -> setMeterNumber($api_options['MeterNumber']);
+						$fedex -> setCarrierCode($api_options['CarrierCode']);
+						$fedex -> setDropoffType($api_options['DropoffType']);
+						$fedex -> setService($fedex_servicecode, $fedex_services_all[$fedex_servicecode]);
+						$fedex -> setPackaging($api_options['Packaging']);
+						$fedex -> setWeightUnits($api_options['WeightUnits']);
+						$fedex -> setWeight($Order -> weight($order_id));
+						if (!empty($api_options['orig_StateOrProvinceCode'])) { $fedex -> setOriginStateOrProvinceCode($api_options['orig_StateOrProvinceCode']); }
+						$fedex -> setOriginPostalCode($api_options['orig_PostalCode']);
+						$fedex -> setOriginCountryCode($api_options['orig_CountryCode']);
+						//$fedex -> setDestStateOrProvinceCode();
+						$fedex -> setDestPostalCode($userdata -> ship_zipcode);
+						$fedex -> setDestCountryCode($userdata -> ship_countrycode);
+						$fedex -> setPayorType("SENDER");	
+						$price = $this -> getPrice();
+						$prices[] = $price;
+					}	
+				}
+			//}
+		}
+		
+		return $prices;
+	}
+}
+class fedexError
+{
+    var $number;
+    var $description;
+    var $response;
+}
+class fedexPrice
+{
+    var $service;
+    var $rate;
+    var $response;
+}
+
+?> 
