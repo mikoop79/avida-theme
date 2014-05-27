@@ -293,8 +293,6 @@ p.productdescription {
 .productsgrid .productpricewrap {
 	float:left;
 	width:100%;
-	line-height:30px;
-	height:30px;
 }
 
 .productsgrid .wpcobuttonwrap {
