@@ -112,7 +112,7 @@ Original: wp-checkout/views/default/style.css
 
 .productslist .productimage, .productsgrid .productimage {
     float: left;
-    margin: 0 20px 0 0;
+    margin: 0 20px 10px 0;
 	z-index:50;
 	position:relative;
 }
@@ -270,9 +270,9 @@ p.productdescription {
 
 .productsgrid .productimage {
     float:left;
-	width:90%;
-	padding:5%;
-	border:1px solid #e5e5e5;
+	width:88%;
+	padding:0%;
+	border:1px solid #999999;
 	-moz-border-radius:5px;
 	-webkit-border-radius:5px;
 	border-radiu:5px;
@@ -978,6 +978,7 @@ fieldset.wpco legend {
     color: #333333;
     font-size: auto;
     font-style: normal;
+    margin-bottom: 10px;
 }
 
 fieldset.wpco legend sup.wpcorequired {
@@ -1395,6 +1396,7 @@ div.wpcoimglist ul li a.zoomThumbActive:hover img {
 
 .productinfoholder p {
 	margin-bottom:0;
+	line-height: 15px;
 }
 
 fieldset.wpcovariation input,

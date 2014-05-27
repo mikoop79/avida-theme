@@ -98,7 +98,7 @@
 				
 					<div class="productimage">
                     	<?php $thumblink = ($this -> get_option('loop_thumblink') == "product") ? get_permalink($product -> post_id) : $wpcoHtml -> image_url($product -> image -> name); ?>
-                    
+                    	
 						<?php if ($this -> get_option('cropthumb') == "Y") : ?>
 							<?php /*<?php echo $wpcoHtml -> link($wpcoHtml -> image($wpcoHtml -> thumb_name($product -> image -> name, $append = "loopthumb"), array('class' => "productimagethumb"), $product -> image -> name), $thumblink, array('title' => apply_filters($this -> pre . '_product_title', $product -> title), 'class' => (($this -> get_option('loop_thumblink') == "product") ? "productimagelink" : "productimagelink thickbox"))); ?>*/ ?>
                             <?php echo $wpcoHtml -> link($wpcoHtml -> timthumb_image($product -> image_url, $this -> get_option('loop_imgw'), $this -> get_option('loop_imgh'), $this -> get_option('loopthumbq'), "productimagethumb"), $thumblink, array('title' => apply_filters($this -> pre . '_product_title', $product -> title), 'class' => (($this -> get_option('loop_thumblink') == "product") ? "productimagelink" : "productimagelink colorbox"))); ?>
@@ -206,7 +206,55 @@
                                             <?php endif; ?>
                                         <?php endif; ?>
                                         
-                                        
+                                          <span class="wpcobuttonwrap">
+                                            <?php if ($this -> get_option('buynow') == "Y" || (!empty($product -> buynow) && $product -> buynow == "Y")) : ?>
+                                            <!-- BEG Buy Now -->
+                                                <?php if ($this -> get_option('loop_btntxt') == "txt") : ?>
+                                                    <span class="productsubmit buynowproductsubmit productsubmittext" id="submit<?php echo $product -> id; ?>"><a class="<?php echo $this -> pre; ?>buylink" href="" onclick="jQuery('#addtocart<?php echo $product -> id; ?>').submit();" title="<?php _e('Buy this product right now', $this -> plugin_name); ?>"><?php echo $product -> buttontext; ?></a></span>
+                                                <?php else : ?>
+                                                    <span class="productsubmit buynowproductsubmit productsubmitbutton" id="submit<?php echo $product -> id; ?>"><a href="<?php echo $thumblink; ?>" target="_self"><?php echo $product -> buttontext; ?></a></span>
+                                                <?php endif; ?>
+                                                
+                                                <?php if (empty($product -> oos) || $product -> oos == false) : ?>
+                                                	<input type="hidden" name="buynow" value="Y" />
+                                                <?php endif; ?>
+                                            <!-- END Buy Now -->
+                                            <?php elseif (!empty($product -> affiliate) && $product -> affiliate == "Y" && !empty($product -> affiliateurl)) : ?>
+                                            <!-- BEG Affiliate -->
+                                            	<?php if ($this -> get_option('loop_btntxt') == "txt") : ?>
+                                                	<span class="productsubmit productsubmittext affiliateproductsubmit" id="submit<?php echo $product -> id; ?>"><a href="<?php echo $product -> affiliateurl; ?>" <?php echo (!empty($product -> affiliatewindow) && $product -> affiliatewindow == "blank") ? 'target="_blank"' : 'target="_self"'; ?> title="<?php echo $product -> buttontext; ?>" class="<?php echo $this -> pre; ?>buylink"><?php echo $product -> buttontext; ?></a></span>
+                                                <?php else : ?>
+                                            		<span class="productsubmit productsubmitbutton affiliateproductsubmit" id="submit<?php echo $product -> id; ?>"><a href="<?php echo $thumblink; ?>" target="_self"><?php echo $product -> buttontext; ?></a></span>
+                                                <?php endif; ?>
+                                            <!-- END Affiliate -->
+                                            <?php else : ?>
+                                            <!-- BEG Normal Product2 -->
+                                                <?php if ($this -> get_option('loop_btntxt') == "txt") : ?>
+                                                    <?php if ((!empty($product -> styles) || !empty($product -> cfields)) && $this -> get_option('loop_showfields') == "N") : ?>
+                                                        <span class="productsubmit productsubmittext" id="submit<?php echo $product -> id; ?>"><a href="<?php echo get_permalink($product -> post_id); ?>" class="<?php echo $this -> pre; ?>buylink" title="<?php _e('Add this product to your shopping cart', $this -> plugin_name); ?>"><?php echo $product -> buttontext; ?></a></span>
+                                                    <?php else : ?>
+                                                        <?php if ($this -> get_option('cart_addajax') == "N" || ($product -> price_type == "donate" && (!empty($product -> inhonorof) && $product -> inhonorof == "Y"))) : ?>
+                                                            <span class="productsubmit productsubmittext" id="submit<?php echo $product -> id; ?>"><a href="" onclick="jQuery('#addtocart<?php echo $product -> id; ?>').submit();" class="<?php echo $this -> pre; ?>buylink" title="<?php _e('Add this product to your shopping cart', $this -> plugin_name); ?>"><?php echo $product -> buttontext; ?></a></span>
+                                                        <?php else : ?>
+                                                            <span class="productsubmit productsubmittext" id="submit<?php echo $product -> id; ?>"><a href="" class="<?php echo $this -> pre; ?>buylink" onclick="wpco_addtocart(jQuery('#addtocart<?php echo $product -> id; ?>'), '<?php echo $product -> id; ?>', '<?php echo $this -> widget_active('cart'); ?>'); return false;" title="<?php _e('Add this product to your shopping cart', $this -> plugin_name); ?>"><?php echo $product -> buttontext; ?></a></span>
+                                                        <?php endif; ?>
+                                                    <?php endif; ?>
+                                                <?php else : ?>
+                                                    <?php if (empty($product -> styles) && empty($product -> cfields)) : ?>     
+                                                    	<?php if ($this -> get_option('cart_addajax') == "Y" && $product -> inhonorof != "Y") : ?>
+                                                        	<span id="submit<?php echo $product -> id; ?>" class="productsubmit productsubmitbutton"><input type="button" name="submit" value="<?php echo $product -> buttontext; ?>" onclick="wpco_addtocart(jQuery('#addtocart<?php echo $product -> id; ?>'), '<?php echo $product -> id; ?>', '<?php echo $this -> widget_active('cart'); ?>'); return false;" /></span>
+                                                        <?php else : ?>
+                                                        	<span id="submit<?php echo $product -> id; ?>" class="productsubmit productsubmitbutton"><a href="<?php echo $thumblink; ?>" target="_self"><?php echo $product -> buttontext; ?></a></span>
+                                                        <?php endif; ?>
+                                                    <?php else : ?>
+                                                        <span id="submit<?php echo $product -> id; ?>" class="productsubmit productsubmitbutton"><a href="<?php echo $thumblink; ?>" target="_self"><?php echo $product -> buttontext; ?></a></span>
+                                                    <?php endif; ?>
+                                                <?php endif; ?>
+                                                <span class="<?php echo $this -> pre; ?>loading" id="loading<?php echo $product -> id; ?>" style="display:none; z-index:99;"><img src="<?php echo $this -> url(); ?>/images/loading.gif" alt="loading" /> <?php _e('Adding Item...', $this -> plugin_name); ?><br class="<?php echo $this -> pre; ?>cleaner" /></span>
+                                                <span class="<?php echo $this -> pre; ?>added" style="display:none;" id="added<?php echo $product -> id; ?>"><img src="<?php echo $this -> url(); ?>/images/accept.png" /> <?php _e('Product has been added', $this -> plugin_name); ?><br class="<?php echo $this -> pre; ?>cleaner" /></span>
+                                            <?php endif; ?>
+                                        </span>
+
                                         
                                         <p class="<?php echo $this -> pre; ?>error producterror" id="message<?php echo $product -> id; ?>" style="display:none;"></p>
                                     </form>
